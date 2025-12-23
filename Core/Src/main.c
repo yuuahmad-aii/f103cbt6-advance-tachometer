@@ -61,6 +61,9 @@ volatile uint32_t Total_Pulse = 0;		 // Total pulsa terbaca
 float Frequency = 0.0;					 // Frekuensi sinyal (Hz)
 float RPM = 0.0;						 // RPM
 volatile uint32_t Last_Capture_Time = 0; // Waktu terakhir capture
+float Max_RPM = 0.0f;
+float Min_RPM = 0.0f;
+uint8_t Display_Mode = 0; // 0:RPM, 1:Freq, 2:Count, 3:Max, 4:Min
 
 // Buffer untuk pengiriman USB
 uint8_t txBuffer[64];
@@ -150,12 +153,43 @@ int main(void)
 		// ... logic tombol ...
 		if (buttons != last_buttons)
 		{
+			// Cek tombol mana yang ditekan (Active High)
+			if (buttons & 0x01) Display_Mode = 0; // Tombol 1: RPM
+			if (buttons & 0x02) Display_Mode = 1; // Tombol 2: Frekuensi
+			if (buttons & 0x04) Display_Mode = 2; // Tombol 3: Counter
+			if (buttons & 0x08) Display_Mode = 3; // Tombol 4: Max RPM
+			if (buttons & 0x10) Display_Mode = 4; // Tombol 5: Min RPM
+			if (buttons & 0x20) {                 // Tombol 6: Reset
+				Total_Pulse = 0;
+				Max_RPM = 0.0f;
+				Min_RPM = 0.0f;
+			}
+
 			pcf_state = buttons;
 			last_buttons = buttons;
 		}
 
-		// Update display string dengan nilai RPM (rata kanan)
-		sprintf(display_str, "%8lu", (uint32_t)RPM);
+		// Update display string berdasarkan mode
+		switch (Display_Mode) {
+			case 0: // RPM
+				sprintf(display_str, "%8lu", (uint32_t)RPM);
+				break;
+			case 1: // Frequency (1 desimal)
+				sprintf(display_str, "%9.2f", Frequency);
+				break;
+			case 2: // Total Pulse
+				sprintf(display_str, "%8lu", Total_Pulse);
+				break;
+			case 3: // Max RPM
+				sprintf(display_str, "%8lu", (uint32_t)Max_RPM);
+				break;
+			case 4: // Min RPM
+				sprintf(display_str, "%8lu", (uint32_t)Min_RPM);
+				break;
+			default:
+				sprintf(display_str, "%8lu", (uint32_t)RPM);
+				break;
+		}
 
 		// 3. Kirim ke Display pakai DMA
 		// Fungsi ini hanya memakan waktu ~1-2 us untuk setup DMA,
@@ -467,6 +501,10 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 
 				// RPM = Frekuensi * 60
 				RPM = Frequency * 60.0f;
+
+				// Update Max & Min RPM
+				if (RPM > Max_RPM) Max_RPM = RPM;
+				if (RPM < Min_RPM || Min_RPM == 0.0f) Min_RPM = RPM;
 			}
 
 			Is_First_Captured = 0;

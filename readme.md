@@ -1,41 +1,52 @@
 # Proyek Tachometer Lanjutan dengan STM32F103CBT6
 
-Proyek ini adalah implementasi tachometer (pengukur kecepatan putaran) tingkat lanjut menggunakan mikrokontroler STM32F103CBT6.
+Proyek ini adalah implementasi tachometer digital menggunakan STM32F103CBT6 yang menampilkan data pada modul LED & Key TM1638 serta mengirimkan log data melalui USB (Virtual COM Port).
 
 ## Deskripsi
 
-Tachometer ini dirancang untuk mengukur kecepatan putaran per menit (RPM) dari sebuah motor, kemungkinan besar motor Brushless DC (BLDC), dengan memanfaatkan sensor Hall. Proyek ini dikembangkan menggunakan STM32CubeIDE dan pustaka HAL dari STMicroelectronics.
-
-Berdasarkan file driver yang ada, proyek ini menggunakan Timer (TIM) dalam mode antarmuka sensor Hall untuk menangkap sinyal dari sensor dan menghitung kecepatan putaran.
+Tachometer ini mengukur kecepatan putaran (RPM) dan frekuensi sinyal input menggunakan fitur *Input Capture* pada Timer. Data ditampilkan secara *real-time* pada 7-segment display modul TM1638. Proyek ini juga mendukung fitur logging data ke PC melalui USB CDC.
 
 ## Perangkat Keras
 
-*   **Mikrokontroler:** STM32F103CBT6
-*   **Sensor:** Sensor Efek Hall (Hall Effect Sensor) untuk mendeteksi putaran motor.
-*   **Lainnya:** Papan pengembangan (seperti Blue Pill atau yang sejenis), motor, dan rangkaian driver motor yang sesuai.
+*   **Mikrokontroler:** STM32F103CBT6 (Blue Pill).
+*   **Display & Input:** Modul TM1638 (8 digit 7-segment, 8 LED, 8 Tombol).
+*   **Input Sinyal:** Sinyal pulsa digital (misal: dari sensor Hall, Optocoupler, atau FG signal generator) yang terhubung ke **TIM2 Channel 1**.
+*   **Komunikasi:** USB (konektor USB onboard STM32).
 
 ## Perangkat Lunak
 
 *   **IDE:** STM32CubeIDE
-*   **Framework:** STM32Cube HAL (Hardware Abstraction Layer)
-*   **Driver yang Digunakan:**
-    *   RCC (Reset and Clock Control)
-    *   TIM (Timer), khususnya untuk antarmuka Sensor Hall
-    *   GPIO (General-Purpose Input/Output)
-    *   PWR (Power Control)
+*   **Framework:** STM32Cube HAL
+*   **Fitur Utama:**
+    *   **TIM2 Input Capture:** Menghitung periode antar pulsa untuk presisi tinggi.
+    *   **DMA SPI:** Mengirim data ke display TM1638 tanpa membebani CPU.
+    *   **USB CDC:** Mengirim data serial ke PC.
 
-## Fungsionalitas
+## Fungsionalitas & Kontrol
 
-1.  **Inisialisasi Sistem:** Mengkonfigurasi clock sistem (SYSCLK, HCLK, PCLK) menggunakan driver RCC.
-2.  **Inisialisasi GPIO:** Mengkonfigurasi pin GPIO untuk input dari sensor Hall dan mungkin output lainnya (misalnya, untuk LCD atau UART).
-3.  **Konfigurasi Timer:** Timer dikonfigurasi dalam mode antarmuka sensor Hall. Dalam mode ini, timer dapat secara otomatis menangkap sinyal dari tiga sensor Hall dan menghitung periode putaran.
-4.  **Perhitungan RPM:** Berdasarkan periode yang diukur oleh timer, perangkat lunak akan menghitung kecepatan dalam RPM.
-5.  **Output (Dugaan):** Hasil RPM kemungkinan ditampilkan pada layar LCD atau dikirim melalui komunikasi serial (UART) ke terminal PC. (Fungsionalitas ini tidak dapat dikonfirmasi tanpa `main.c`).
+Program memiliki fitur *auto-zero* (RPM kembali ke 0 jika tidak ada sinyal selama 3 detik) dan filter *software* untuk mengabaikan *noise* frekuensi tinggi (>12.000 RPM).
+
+### Fungsi Tombol pada TM1638:
+
+| Tombol | Fungsi | Deskripsi |
+| :--- | :--- | :--- |
+| **S1** | Mode RPM | Menampilkan nilai RPM saat ini. |
+| **S2** | Mode Frekuensi | Menampilkan frekuensi input dalam Hz. |
+| **S3** | Mode Counter | Menampilkan total jumlah pulsa yang terhitung. |
+| **S4** | Max RPM | Menampilkan nilai RPM tertinggi yang pernah tercatat. |
+| **S5** | Min RPM | Menampilkan nilai RPM terendah (selain 0). |
+| **S6** | Reset | Mereset nilai Counter, Max RPM, dan Min RPM ke 0. |
+
+## Output Data
+
+1.  **Display TM1638:** Menampilkan angka sesuai mode yang dipilih.
+2.  **USB Serial Monitor:** Mengirim string dengan format:
+    `RPM: [nilai] | Freq: [nilai] Hz | Total: [nilai]`
 
 ## Cara Menggunakan
 
 1.  Buka proyek ini menggunakan STM32CubeIDE.
-2.  Hubungkan perangkat keras sesuai dengan konfigurasi pin di dalam kode (`main.c`).
+2.  Hubungkan modul TM1638 ke pin SPI yang sesuai dan sinyal input ke pin Timer Input Capture.
 3.  Bangun (Build) proyek.
 4.  Unggah (Upload) file `.elf` atau `.bin` yang dihasilkan ke papan STM32F103CBT6.
-5.  Nyalakan sistem dan amati outputnya.
+5.  Nyalakan sistem, tekan tombol pada TM1638 untuk mengganti mode tampilan.
